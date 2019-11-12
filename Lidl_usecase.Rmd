@@ -1,0 +1,76 @@
+---
+title: "Lidl: Expanding our candy brand"
+author: "Jonas Miosga"
+date: "11/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(hrbrthemes)
+library(dplyr)
+library(tidyr)
+library(viridis)
+```
+
+## Objective
+The aim is to develop a new candy that satisfies the customers' needs. A market research group found this data which is the foundation of further exploration.
+
+## The Variables
+There's the name, a bunch of properties each candy has (or has not) and three variables which are represented as percentiles, i.e. relative ranks. Those three percentile variables are the most interesting for now because we have actual ranks which are detailed as opposed to name and binary variables.\
+The variable `winpercent` is the overall win percentage. The data is computed from over 269,000 matchups which is giving someone two options of candy and he or she has to choose, so basically a popularity measure. It's the construct we would like to predict in order to create a new candy which will score high on popularity. To have an overview of the distribution of the current products, see in the following plot that the data is roughly normally distributed and slightly right-skewed.
+
+```{r yvisual, echo=F}
+candy <- read.csv("~/Documents/GitHub/candy_usecase/candy-data.csv") # data import
+candy$winpercent <- candy$winpercent/100 # adjust scale to other percentile variables
+candy %>%
+  filter(winpercent<1) %>%
+  ggplot(aes(x=winpercent)) +
+  xlab("Winning percentile") +
+  ylab("Density") + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+```
+
+## Analysis
+```{r explorative, echo=T}
+library(MASS)
+# Ridge regression model
+model.ridge <- lm.ridge(winpercent~., data=candy[,-1], lambda=seq(0,15, by=0.2))
+# Plot GCV against lambda to find best lambda at lowest GCV
+plot_data = data.frame(model.ridge$lambda, model.ridge$GCV)
+ggplot(plot_data, aes(x=model.ridge.lambda, y=model.ridge.GCV)) +
+  xlab("lambda") +
+  ylab("generalized cross-validation (GCV)") +
+  geom_line()
+
+# Find best lambda 
+lambda.opt <- model.ridge$lambda[which.min(model.ridge$GCV)]
+
+# model with optimal lambda
+model.opt.ridge <- lm.ridge(winpercent~., data=candy[,-1], 
+                            lambda = lambda.opt)
+ridge.coef <- coef(model.opt.ridge)
+ridge.coef # coefficients in original scale + intercept
+
+pred.ridge <- as.matrix(cbind(rep(1,length(candy[,1])),candy[,-c(1, 13)]))%*%ridge.coef
+plot_data2 <- data.frame(candy$winpercent, pred.ridge)
+ggplot(plot_data2, aes(x=candy.winpercent, y=pred.ridge)) +
+  xlab("Winning percentile") +
+  ylab("Predicted winning percentile") +
+  geom_point() +
+  geom_abline()
+
+# linear regression
+
+model.lin <- lm(winpercent~., data=candy[,-1])
+summary(model.lin)
+```
+
+model.lin <- lm(winpercent ~ ., data=candy[,-1])
+
+
+
+
+
+Moreover, we could investigate what role the sugar proportion plays in people rating candy high. Maybe there is some strategy/marketing campaign of Lidl to reduce sugar in its products. Releasing new candy with lower sugar proportions could benefit that campaign and hence Lidl's reputation. The point is that profits don't always need to be purely financial.
