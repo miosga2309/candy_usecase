@@ -3,6 +3,8 @@ title: "Lidl: Expanding our candy brand"
 author: "Jonas Miosga"
 date: "11/12/2019"
 output: html_document
+header-includes:
+- \onehalfspacing
 ---
 
 ```{r setup, include=FALSE}
@@ -13,14 +15,15 @@ library(dplyr)
 library(tidyr)
 library(viridis)
 library(MASS)
+library(formattable)
+library(data.table)
 ```
 
 ## Objective
 The aim is to develop a new candy that satisfies the customers' needs. A market research group found this data which is the foundation of further exploration.
 
 ## The Variables
-Next to the product's name, each product has a range of properties which are either present (1) or not (0) and three variables which are represented as percentiles, i.e. relative ranks. \
-The variable `winpercent` is the overall win percentage. The data is computed from over 269,000 matchups which is giving someone two options of candy and he or she has to choose, so basically a popularity measure. Note that I will use popularity and `winpercent` interchangeably throughout the case study. It's the construct we would like to predict in order to create a new candy which will score high on popularity. To have an overview of the popularity distribution of the current products, see in the following plot that the data is roughly normally distributed and slightly right-skewed. The red line represents the mean of 0.503.
+Next to the product's name, each product has a range of properties which are either present (1) or not (0) and three variables which are represented as percentiles, i.e. relative ranks. The variable `winpercent` is the overall win percentage. The data is computed from over 269,000 matchups. That is giving someone two options of candy and he or she has to choose, so basically a popularity measure. Note that I will use popularity and `winpercent` interchangeably throughout the case study. It is the construct we would like to predict in order to create a new candy which will score high with regard to popularity. To have an overview of the popularity distribution of the current products, see in the following plot that the data is roughly normally distributed and slightly right-skewed. The red line represents the mean of 0.503.
 
 ```{r yvisual, echo=F}
 candy <- read.csv("~/Documents/GitHub/candy_usecase/candy-data.csv") # data import
@@ -36,8 +39,8 @@ candy %>%
   geom_vline(aes(xintercept = mean(winpercent)), color = "darkred")
 ```
 
-## Explorative Analysis
-To analyze the data, I have chosen ridge regression. Ridge puts a size constraint on the parameters to be estimated. By penalizing the residual sum of squares, we aim to avoid that highly correlated regressors cancel each other (multicollinearity). For explorative purposes, I did a quick linear regression to have an overview of probably important variables and principal component analysis for exploring how many main factors there are. Though, none of these two techniques would be sufficient to answer the question at hand.
+## Analysis
+To analyze the data, I have chosen ridge regression. Ridge puts a size constraint lambda on the parameters to be estimated. By penalizing the residual sum of squares, we aim to avoid that highly correlated regressors cancel each other (multicollinearity). For explorative purposes, I did a linear regression to quickly overview probably important variables and a principal component analysis for exploring how many main factors there are. Anyway, none of these two techniques would be sufficient to answer the question at hand.
 
 ```{r explorative, echo=T}
 # ridge regression model
@@ -47,15 +50,15 @@ model.ridge <- lm.ridge(winpercent~., data = candy[,-1], lambda = seq(0,15, by =
 lambda.opt <- model.ridge$lambda[which.min(model.ridge$GCV)]
 
 # model with optimal lambda
-model.opt.ridge <- lm.ridge(winpercent~., data = candy[,-1], 
-                            lambda = lambda.opt)
+model.opt.ridge <- lm.ridge(winpercent~., data = candy[,-1], lambda = lambda.opt)
 ridge.coef <- coef(model.opt.ridge) # coefficients in original scale + intercept
 
 # coefficients for scaled x
-round(sort(model.opt.ridge$coef, decreasing = T), digits = 4)
+scaled_coefs <- round(sort(model.opt.ridge$coef, decreasing = T), digits = 4)
+scaled_coefs
 ```
 
-Above are the sorted standardized coefficients of the cross-validated model. Since they are scaled, we can compare each of the coefficients' weights. First of all, the coefficients imply what customers did not like. Hard candy (hard) which is expensive (pricepercent) and comes as a bag/box of many sweets. After that, we have a look at the tastes. Several of the tastes contribute to an increase in popularity. There seems to be no way around chocolate. Look at the plot below and you clearly see the impact of chocolate. \
+Above are the sorted standardized coefficients of the cross-validated model. Since they are scaled, we can compare each of the coefficients' weights. First of all, the coefficients imply what drives the customers' preferences down: hard candy (hard) which is expensive (pricepercent) and comes as a bag/box of many sweets. After that, we have a look at the tastes. Several of the tastes contribute to an increase in popularity. There seems to be no way around chocolate. Look at the plot below and you clearly see the impact of chocolate. \
 
 ```{r visual.choco, echo=F}
 candy %>%
@@ -66,38 +69,52 @@ candy %>%
   theme_ipsum() +
   scale_fill_manual(name = "", values = c("#B8B2B2","#753615"),
                     labels = c(" no Chocolate", "Chocolate")) +
-  #scale_fill_discrete(name = "Taste", labels = c(" Chocolate", "No chocolate")) + 
   geom_density(aes(fill = factor(chocolate)), alpha = 0.8)
 ```
 
 How should we combine other tastes with chocolate? Chocolate paired with something peanuty/almondy sounds familiar. Is fruity boosting popularity on its own or is there a way to use both chocolate's and fruitiness' weights to create a product with superior popularity? \
-To answer that we have to look in representative cases in the data. There is only one combination of chocolate and fruit taste within the 85 candies in the sample which is rated below average. Hence this appears to be not the way to go. One could still ask why candy seems to have such a strong impact but is actually badly rated. Looking at the bottom ranks, one can easily detect why fruity has such a high weight in the analysis. Most of the fruity candies are only fruity and don't have any other tastes. Even if the fruity candies score lower on average in popularity, a large part of the variation in `winpercent` is explained by the fruity variable. \
-However, 12 candies have chocolate and nuts in it, the two tastes which contribute to popularity a lot. These candies have a mean-`winpercent` of 0.685 which is way above average. That is a promising result we can work with. \
-
-```{r combis, include=F}
-choc_nut <- as.numeric(count(candy[candy$chocolate == 1 
-                                             & candy$peanutyalmondy == 1,]))
-choc_fruit <- as.numeric(count(candy[candy$chocolate == 1 
-                          & candy$fruity == 1,]))
-mean(candy$winpercent[candy$chocolate == 1 & candy$peanutyalmondy == 1])
+\
+To answer that we have to look in representative cases in the data. There is only one combination of chocolate and fruit taste within the 85 candies in the sample which is rated below average. Hence this appears to be not the way to go. One could still ask why fruitiness seems to have such a strong impact but is actually badly rated. Looking at the bottom ranks, one can easily detect why fruity has such a high weight in the analysis. Most of the fruity candies are only fruity and don't have any other tastes. Even if the fruity candies score lower on average in popularity, a large part of the variation in `winpercent` is explained by the fruity variable. \
+\
+To be sure that there is no such effect for other strong variables, we compare the mean rating of each of the tastes a candy can have to the overall average. From the coefficients in the table below one can observe that although some of the variables add a fair part to the `winpercent` variable, their overall group mean is quite low.
+```{r meantable, echo=F}
+attach(candy)
+Property <- c("chocolate", "peanutyalmondy", "fruity", "crispedricewafer",
+          "caramel", "bar", "nougat", "pluribus", "hard")
+Mean.winpercent <- c(mean(winpercent[chocolate == 1]), 
+               mean(winpercent[peanutyalmondy == 1]),
+               mean(winpercent[fruity == 1]), 
+               mean(winpercent[crispedricewafer == 1]),
+               mean(winpercent[caramel == 1]),
+               mean(winpercent[bar == 1]),
+               mean(winpercent[nougat == 1]),
+               mean(winpercent[pluribus == 1]),
+               mean(winpercent[hard == 1]))
+Mean.winpercent <- round(Mean.winpercent, digits = 4)
+Coefficients <- scaled_coefs[-c(4, 10)]
+win_means_df <- data.frame(Mean.winpercent, Coefficients)
+formattable(win_means_df, list(area(col = Coefficients, row = chocolate:pluribus) ~ color_tile("transparent", "#00CC66")))
 ```
 
-
-
-
-## Detail Analysis
-Since fruity is out of the race as a taste for the new product and chocolate dominates the popular ranks, let's have a closer look at the top ranks. To do that, we extract a subset of the original data.
-```{r subset, echo=T}
-subset <- candy[order(candy$winpercent, decreasing = T)[1:30],]
-model.sub <- lm(winpercent ~., data = candy[,-1])
-summary(model.sub)
-```
+The ultimative step to do now is to combine the information from the coefficients and from the group means. As already mentioned and graphically displayed, chocolate needs to be part of our new candy for sure. Peanuts/Almonds and crispiness are also properties which increase `winpercent`, i.e. the popularity by a fair amount plus the existing candies of such types are scoring high in general. Similarly but a bit weaker, this is true for nougat and caramel. Whether the sweet comes as a bar or in a bag of several sweets does not make a large difference, however, a bar is slightly preferred. Finally, having in mind what customers not want from before, we should not forget that also the sugar proportion has an enhancing effect and the price a decreasing effect on the popularity. \
 
 ## Potential Bias
-Many of the high-scoring candies are popular in general as for example Snickers, Twix, Kit Kat or Milky Way. Needless to say, those products are prominent for a reason but might be a fair amount of `winpercent` explained purely by the fact that people know the product. To use this effect, the product development should try create a product which reminds the customer of 
+#### General popularity
+Many of the high-scoring candies are popular in general as for example Snickers, Twix, Kit Kat or Milky Way. Needless to say, those products are prominent for a reason but it might be a fair amount of `winpercent` explained purely by the fact that people know the product. To use this effect, the product development should try create a product which reminds the customer of those. The feeling of familiarity might attract potential customers. 
 
-## Appendix
+#### Price factor
+The price effect is rather small in this data and many candies with the highest `winpercent` are in the higher price percentiles. Anyhow, remember that this study is about people rating the taste types and deciding between two opposing candies. Nobody actually bought some candy which means that the price effect might be underrated in this study and that the price is indeed a very important factor. 
 
-Chocolate and Fruity are the factors with the most influence on winpercent. Is it possible to combine those tastes and still have a good product? The next two variables that are important for winpercent are peanutyAlmondy and caramel which go well with chocolate. Let's explore!
+## Conclusion
+Our new candy should have the following properties with decreasing importance of the need to implement it: \
+1. chocolate \
+2. peanuty/almondy \
+3. crispedricewafer \
+4. caramel \
+5. bar \
+6. nougat \
+It should contain enough sugar since the sugar proportion also has a positive influence on popularity. Fruitiness, a hard texture and selling it in a bag/box of serveral candies should be avoided. Keep in mind that similarity to generally popular candies can have a boosting sales effect and that it is most probably important to keep the price low.
 
-Moreover, we could investigate what role the sugar proportion plays in people rating candy high. Maybe there is some strategy/marketing campaign of Lidl to reduce sugar in its products. Releasing new candy with lower sugar proportions could benefit that campaign and hence Lidl's reputation. The point is that profits don't always need to be purely financial.
+
+
+\
