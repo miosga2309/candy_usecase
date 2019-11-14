@@ -1,6 +1,6 @@
 # Candy Power Ranking
 
-This folder contains the data behind the story [The Ultimate Halloween Candy Power Ranking](http://fivethirtyeight.com/features/the-ultimate-halloween-candy-power-ranking/).
+This repository contains [open data from FiveThirtyEight](https://github.com/fivethirtyeight/data/tree/master/candy-power-ranking) which were used for a short casestudy I had to prepare for an interview. The following information about the data is from FiveThirtyEight as well.
 
 `candy-data.csv` includes attributes for each candy along with its ranking. For binary variables, 1 means yes, 0 means no.
 
