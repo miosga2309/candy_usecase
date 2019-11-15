@@ -1,5 +1,5 @@
 ---
-title: "Lidl: Expanding our candy brand"
+title: "Expanding our candy brand"
 author: "Jonas Miosga"
 date: "11/12/2019"
 output: html_document
