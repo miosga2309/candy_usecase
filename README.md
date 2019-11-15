@@ -1,7 +1,7 @@
 # Candy Usecase
 
-Final document: \
-http://htmlpreview.github.io/?https://github.com/miosga2309/candy_usecase/blob/master/Lidl_usecase.html \
+View html document: \
+http://htmlpreview.github.io/?https://github.com/miosga2309/candy_usecase/blob/master/Lidl_usecase.html
 
 This repository contains [open data from FiveThirtyEight](https://github.com/fivethirtyeight/data/tree/master/candy-power-ranking) which were used for a short case study I had to prepare for an interview. The following information about the data is from FiveThirtyEight as well.
 
